@@ -26,11 +26,8 @@ jobs:
          docker tag demoapi:latest ${{secrets.ACR_NAME}}.azurecr.io/demoapi:${{github.sha}}
 
       - name: Login to ACR
-        uses: azure/docker-login@v1
-        with:
-          login-server: ${{ secrets.ACR_NAME }}.azurecr.io
-          username: ${{ secrets.AZURE_CLIENT_ID }}
-          password: ${{ secrets.AZURE_CLIENT_SECRET }}
+        run: |
+         az acr login --name ${{ secrets.ACR_NAME }}
 
       - name: Push Docker image to ACR
         run: | 
