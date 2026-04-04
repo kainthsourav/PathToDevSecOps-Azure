@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
       - name: demoapi
-        image: demoapi:latest
+        image: ACR_NAME_PLACEHOLDER/demoapi:latest
         ports:
         - containerPort: 8080
         env:
@@ -24,5 +24,3 @@ spec:
           value: "Development"
         - name: ASPNETCORE_URLS
           value: "http://+:8080"
-
-

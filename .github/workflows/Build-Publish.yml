@@ -23,22 +23,24 @@ jobs:
          docker buildx build \
          --platform linux/amd64 \
          -f docker/DemoApi.Dockerfile \
-         -t acrdemosourav.azurecr.io/demoapi:latest \
-         -t acrdemosourav.azurecr.io/demoapi:${{ github.sha }} \
+         -t ${{secrets.ACR_NAME}}.azurecr.io/demoapi:${{github.sha}} \
          --push .
-
+         
       - name: Set AKS Context
         uses: azure/aks-set-context@v3
         with:
           resource-group: ${{secrets.AKS_RESOURCE_GROUP}}
           cluster-name: ${{secrets.AKS_CLUSTER_NAME}}
 
+      - name: Update image in manifest
+        run: |
+          sed -i 's|ACR_NAME_PLACEHOLDER|${{ secrets.ACR_NAME }}.azurecr.io|g' k8s/deployment.yaml
+
       - name: Deploy to AKS
         uses: azure/k8s-deploy@v4
         with:
           manifests: |
-            k8/deployment.yaml
-            k8/service.yaml
+            k8s/deployment.yaml
+            k8s/service.yaml
           images: |
-            ${{secrets.ACR_NAME}}.azurecr.io/demoapi:${{github.sha}}
-
+            ${{ secrets.ACR_NAME }}.azurecr.io/demoapi:${{ github.sha }}
