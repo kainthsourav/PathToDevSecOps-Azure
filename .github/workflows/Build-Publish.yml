@@ -37,5 +37,5 @@ jobs:
             k8/deployment.yaml
             k8/service.yaml
           images: |
-            ${{ secrets.ACR_NAME }}.azurecr.io/demoapi:${{ github.sha }}
+            acrdemosourav.azurecr.io/demoapi:${{ github.sha }}
 
