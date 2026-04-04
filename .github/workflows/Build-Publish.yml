@@ -42,5 +42,6 @@ jobs:
           manifests: |
             k8/deployment.yaml
             k8/service.yaml
+            k8/hpa.yaml
           images: |
             ${{ secrets.ACR_NAME }}.azurecr.io/demoapi:${{ github.sha }}
