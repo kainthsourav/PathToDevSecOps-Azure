@@ -16,19 +16,26 @@ jobs:
         uses: azure/login@v1
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }} 
-
-      - name: Build Docker image
-        run: | 
-         docker build -f docker/DemoApi.Dockerfile -t demoapi:latest .
-
-      - name: Tag Docker image
-        run: | 
-         docker tag demoapi:latest ${{secrets.ACR_NAME}}.azurecr.io/demoapi:${{github.sha}}
-
-      - name: Login to ACR
+      
+      - name: Build and Push Image
         run: |
          az acr login --name ${{ secrets.ACR_NAME }}
+         docker buildx build \
+         --platform linux/amd64 \
+         -f docker/DemoApi.Dockerfile \
+         -t ${{ secrets.ACR_NAME }}.azurecr.io/demoapi:${{ github.sha }} \
+         --push .
 
-      - name: Push Docker image to ACR
-        run: | 
-         docker push ${{secrets.ACR_NAME}}.azurecr.io/demoapi:${{github.sha}} 
+      - name: Set AKS Context
+        run: |
+          az aks get-credentials --resource-group ${{ secrets.AKS_RESOURCE_GROUP }} --name ${{ secrets.AKS_CLUSTER_NAME }}
+
+      - name: Deploy to AKS
+        uses: azure/k8s-deploy@v4
+        with:
+          manifests: |
+            k8/deployment.yaml
+            k8/service.yaml
+          images: |
+            ${{ secrets.ACR_NAME }}.azurecr.io/demoapi:${{ github.sha }}
+
