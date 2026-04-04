@@ -34,13 +34,13 @@ jobs:
 
       - name: Update image in manifest
         run: |
-          sed -i 's|ACR_NAME_PLACEHOLDER|${{ secrets.ACR_NAME }}.azurecr.io|g' k8s/deployment.yaml
+          sed -i 's|ACR_NAME_PLACEHOLDER|${{ secrets.ACR_NAME }}.azurecr.io|g' k8/deployment.yaml
 
       - name: Deploy to AKS
         uses: azure/k8s-deploy@v4
         with:
           manifests: |
-            k8s/deployment.yaml
-            k8s/service.yaml
+            k8/deployment.yaml
+            k8/service.yaml
           images: |
             ${{ secrets.ACR_NAME }}.azurecr.io/demoapi:${{ github.sha }}
