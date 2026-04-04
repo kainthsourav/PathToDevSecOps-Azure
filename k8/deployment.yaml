@@ -24,16 +24,16 @@ spec:
           value: "Development"
         - name: ASPNETCORE_URLS
           value: "http://+:8080"
-          
-livenessProbe:
-  httpGet:
-    path: /weatherforecast
-    port: 8080
-  initialDelaySeconds: 10
-  periodSeconds: 30
-readinessProbe:
-  httpGet:
-    path: /weatherforecast
-    port: 8080
-  initialDelaySeconds: 5
-  periodSeconds: 10
+
+        livenessProbe:
+          httpGet:
+            path: /weatherforecast
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /weatherforecast
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 10
