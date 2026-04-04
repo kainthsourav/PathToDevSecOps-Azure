@@ -15,20 +15,22 @@ jobs:
       - name: Login to Azure
         uses: azure/login@v1
         with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }} 
+          creds: ${{secrets.AZURE_CREDENTIALS}} 
       
       - name: Build and Push Image
         run: |
-         az acr login --name ${{ secrets.ACR_NAME }}
+         az acr login --name ${{secrets.ACR_NAME}}
          docker buildx build \
          --platform linux/amd64 \
          -f docker/DemoApi.Dockerfile \
-         -t ${{ secrets.ACR_NAME }}.azurecr.io/demoapi:${{ github.sha }} \
+         -t ${{secrets.ACR_NAME}}.azurecr.io/demoapi:${{github.sha}} \
          --push .
-
+         
       - name: Set AKS Context
-        run: |
-          az aks get-credentials --resource-group ${{ secrets.AKS_RESOURCE_GROUP }} --name ${{ secrets.AKS_CLUSTER_NAME }}
+        uses: azure/aks-set-context@v3
+        with:
+          resource-group: ${{secrets.AKS_RESOURCE_GROUP}}
+          cluster-name: ${{secrets.AKS_CLUSTER_NAME}}
 
       - name: Deploy to AKS
         uses: azure/k8s-deploy@v4
@@ -37,5 +39,5 @@ jobs:
             k8/deployment.yaml
             k8/service.yaml
           images: |
-            acrdemosourav.azurecr.io/demoapi:${{ github.sha }}
+            ${{secrets.ACR_NAME}}.azurecr.io/demoapi:${{github.sha}}
 
