@@ -1,4 +1,4 @@
-name: Infrastructure — Terragrunt
+name: Infrastructure-Terragrunt
 
 on:
   push:
@@ -18,7 +18,7 @@ env:
 
 jobs:
   dev:
-    name: Terragrunt — Dev
+    name: Terragrunt-Dev
     runs-on: ubuntu-latest
     environment: dev
     
@@ -65,7 +65,7 @@ jobs:
         run: terragrunt apply -auto-approve -input=false -lock-timeout=10m
 
   Staging:
-    name: Terragrunt — Staging
+    name: Terragrunt-Staging
     runs-on: ubuntu-latest
     environment: staging
 
@@ -112,7 +112,7 @@ jobs:
         run: terragrunt apply -auto-approve -input=false -lock-timeout=10m
 
   Production:
-    name: Terragrunt — Production
+    name: Terragrunt-Production
     runs-on: ubuntu-latest
     environment: prod
 
