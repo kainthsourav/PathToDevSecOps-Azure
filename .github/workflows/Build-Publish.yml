@@ -56,8 +56,8 @@ jobs:
 #JOB 2 - Build and Publish
   build-and-publish:
     runs-on: ubuntu-latest
-    environment: dev 
-    depends-on: terraform
+    needs: terraform
+    environment: dev
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
