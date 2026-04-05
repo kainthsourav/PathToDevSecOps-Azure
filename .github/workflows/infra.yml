@@ -40,7 +40,7 @@ jobs:
           terraform_wrapper: false
 
       - name: Debug repo structure
-        run: ls -R 
+        run: ls -R /home/runner/work/PathToDevSecOps-Azure/PathToDevSecOps-Azure
 
       - name: Setup Terragrunt
         run: |
