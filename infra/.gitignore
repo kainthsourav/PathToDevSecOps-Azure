@@ -1,0 +1,17 @@
+# Your actual variable values — never commit
+*.tfvars
+*.tfvars.json
+
+# Terraform working directory — downloaded providers
+.terraform/
+
+# Lock file — commit this if working in a team, ignore if solo
+# .terraform.lock.hcl
+
+# State files — never commit, always use remote backend
+terraform.tfstate
+terraform.tfstate.backup
+
+# Crash logs
+crash.log
+crash.*.log
