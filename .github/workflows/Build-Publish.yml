@@ -28,7 +28,7 @@ jobs:
         uses: hashicorp/setup-terraform@v1
 
       - name: Terraform Init
-        run:
+        run: |
           terraform init \
             -backend-config="resource_group_name=${{secrets.TF_RESOURCE_GROUP}}" \
             -backend-config="storage_account_name=${{secrets.TF_STORAGE_ACCOUNT}}" \
