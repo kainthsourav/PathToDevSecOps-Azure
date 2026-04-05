@@ -14,6 +14,6 @@ inputs={
     acr_name="acrdemosouravstaging"
     aks_cluster_name="aks-dotnet-demo-staging"
     aks_node_count=1
-    aks_node_size="Standard_D4d_v4"
+    aks_node_size="Standard_B2s"
     environment="staging"
 }
