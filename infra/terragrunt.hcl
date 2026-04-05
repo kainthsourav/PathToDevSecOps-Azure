@@ -44,6 +44,6 @@ EOF
 
 # Input variables passed to modules
 inputs = {
-  location   = "eastasia"     # Azure region
+  location   = "denmarkeast"     # Azure region
   managed_by = "terragrunt"   # Tagging / metadata
 }
