@@ -68,6 +68,7 @@ jobs:
     name: Terragrunt-Staging
     runs-on: ubuntu-latest
     environment: staging
+    needs: dev  # only run after dev succeeds
 
     env:
       ARM_ACCESS_KEY: ${{ secrets.TF_STATE_ACCESS_KEY }}  # job level — available to ALL steps including cache
@@ -115,6 +116,7 @@ jobs:
     name: Terragrunt-Production
     runs-on: ubuntu-latest
     environment: prod
+    needs: Staging  # only run after staging succeeds
 
     env:
       ARM_ACCESS_KEY: ${{ secrets.TF_STATE_ACCESS_KEY }}  # job level — available to ALL steps including cache
