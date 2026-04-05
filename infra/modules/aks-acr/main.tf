@@ -24,10 +24,10 @@ resource "azurerm_container_registry" "acr" {
     managed_by  = "terraform"
   }
 
-  lifecycle {
-    prevent_destroy       = true
-    create_before_destroy = true
-  }
+  #lifecycle {
+    #prevent_destroy       = true
+    #create_before_destroy = true
+  #}
 }
 
 resource "azurerm_kubernetes_cluster" "aks" {
@@ -53,13 +53,13 @@ resource "azurerm_kubernetes_cluster" "aks" {
     managed_by  = "terraform"
   }
 
-  lifecycle {
-    prevent_destroy = true
-    ignore_changes = [
-      default_node_pool[0].node_count,
-      tags
-    ]
-  }
+  #lifecycle {
+    #prevent_destroy = true
+    #ignore_changes = [
+      #default_node_pool[0].node_count,
+      #tags
+    #]
+  #}
 }
 
 resource "azurerm_role_assignment" "aks_acr_pull" {
@@ -68,9 +68,9 @@ resource "azurerm_role_assignment" "aks_acr_pull" {
   scope                            = azurerm_container_registry.acr.id
   skip_service_principal_aad_check = true
 
-  lifecycle {
-    replace_triggered_by = [
-      azurerm_kubernetes_cluster.aks
-    ]
-  }
+  #lifecycle {
+    #replace_triggered_by = [
+      #azurerm_kubernetes_cluster.aks
+    #]
+  #}
 }
