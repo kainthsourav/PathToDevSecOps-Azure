@@ -40,7 +40,7 @@ jobs:
           terraform_wrapper: false
 
       - name: Debug repo structure
-        run: ls -R ./infra
+        run: ls -R 
 
       - name: Setup Terragrunt
         run: |
