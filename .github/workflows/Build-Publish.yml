@@ -41,7 +41,7 @@ jobs:
 
       - name: Terraform Plan
         run: |
-          terraform plan \
+          terraform plan -input=false -lock-timeout=10m \
             -var="resource_group_name=${{secrets.AKS_RESOURCE_GROUP}}" \
             -var="aks_cluster_name=${{secrets.AKS_CLUSTER_NAME}}" \
             -var="location=${{secrets.AKS_LOCATION}}" \
