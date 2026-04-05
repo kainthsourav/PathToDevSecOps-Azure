@@ -38,10 +38,7 @@ jobs:
         with:
           terraform_version: ${{ env.TERRAFORM_VERSION }}
           terraform_wrapper: false
-
-      - name: Debug runner root
-        run: ls -R /
-
+          
       - name: Debug repo root
         run: ls -R $GITHUB_WORKSPACE
 
