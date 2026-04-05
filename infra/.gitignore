@@ -15,3 +15,11 @@ terraform.tfstate.backup
 # Crash logs
 crash.log
 crash.*.log
+
+# Terragrunt generated files
+**/.terragrunt-cache/
+**/backend.tf
+**/provider.tf
+**/.terraform/
+**/*.tfstate
+**/*.tfstate.backup
