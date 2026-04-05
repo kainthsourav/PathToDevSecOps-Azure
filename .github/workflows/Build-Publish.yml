@@ -57,6 +57,7 @@ jobs:
   build-and-publish:
     runs-on: ubuntu-latest
     environment: dev 
+    depends-on: terraform
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
