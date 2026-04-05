@@ -44,8 +44,7 @@ jobs:
             -backend-config="resource_group_name=${{ secrets.TF_RESOURCE_GROUP }}" \
             -backend-config="storage_account_name=${{ secrets.TF_STORAGE_ACCOUNT }}" \
             -backend-config="container_name=${{ secrets.TF_CONTAINER_NAME }}" \
-            -backend-config="key=demoapi.terraform.tfstate" \
-            -backend-config="use_azuread_auth=true"
+            -backend-config="key=demoapi.terraform.tfstate"
 
       - name: Terraform Validate
         run: terraform validate
