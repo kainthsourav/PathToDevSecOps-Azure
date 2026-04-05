@@ -22,8 +22,8 @@ jobs:
     runs-on: ubuntu-latest
     environment: dev
     defaults:
-      run:
-        working-directory: ./infra/environments/dev   # ← fixed path
+      # run:
+      #   working-directory: ./infra/environments/dev   # ← fixed path
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
