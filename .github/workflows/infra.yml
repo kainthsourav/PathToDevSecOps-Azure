@@ -18,45 +18,48 @@ env:
 
 jobs:
   dev:
-    name: Terragrunt - Dev
+    name: Terragrunt — Dev
     runs-on: ubuntu-latest
     environment: dev
+    
+    env:
+      ARM_ACCESS_KEY: ${{ secrets.TF_STATE_ACCESS_KEY }}  # job level — available to ALL steps including cache
+
     defaults:
       run:
-        working-directory: ./infra/enviroments/dev  # ← fixed path
-#         /home/runner/work/PathToDevSecOps-Azure/PathToDevSecOps-Azure/infra/enviroments/dev:
-# terragrunt.hcl
+        working-directory: ./infra/environments/dev
+
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
-     
+        uses: actions/checkout@v3
+
       - name: Login to Azure
         uses: azure/login@v1
         with:
-          creds: ${{secrets.AZURE_CREDENTIALS}}
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: ${{ env.TERRAFORM_VERSION }}
           terraform_wrapper: false
-          
-      # - name: Debug repo root
-      #   run: ls -R $GITHUB_WORKSPACE
 
       - name: Setup Terragrunt
+        working-directory: .
         run: |
           wget -q https://github.com/gruntwork-io/terragrunt/releases/download/v${{ env.TERRAGRUNT_VERSION }}/terragrunt_linux_amd64
           chmod +x terragrunt_linux_amd64
           sudo mv terragrunt_linux_amd64 /usr/local/bin/terragrunt
           terragrunt --version
 
-      - name : Terragrunt Validate
+      - name: Terragrunt Init
         run: terragrunt init --terragrunt-non-interactive
 
+      - name: Terragrunt Validate
+        run: terragrunt validate
+
       - name: Terragrunt Plan
-        run: terragrunt plan --terragrunt-non-interactive
+        run: terragrunt plan -input=false -lock-timeout=10m
 
       - name: Terragrunt Apply
         run: terragrunt apply -auto-approve -input=false -lock-timeout=10m
-
