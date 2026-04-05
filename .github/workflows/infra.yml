@@ -23,7 +23,7 @@ jobs:
     environment: dev
     defaults:
       run:
-        working-directory: ../../infra/environments/dev # set working directory for all steps
+        working-directory: ./infra/environments/dev   # ← fixed path
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
