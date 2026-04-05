@@ -14,7 +14,6 @@ remote_state {
     storage_account_name  = "tfstatesouravdemo"      # Storage account name
     container_name        = "tfstate"                # Blob container for state
     key                   = "${path_relative_to_include()}/terraform.tfstate" # Unique key per module
-    use_azuread_auth     = false
   }
 }
 
