@@ -4,7 +4,56 @@ on:
     branches:
       - main
   workflow_dispatch:
+
+#JOB 1 : Terraform - Provision Infrastructure
 jobs:
+  terraform:
+    name: Terraform - Provision Infrastructure
+    runs-on: ubuntu-latest
+    environment: dev
+
+    defaults:
+      run:
+        working-directory: ./infra
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      
+      - name: Login to Azure
+        uses: azure/login@v1
+        with:
+          creds: ${{secrets.AZURE_CREDENTIALS}}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v1
+
+      - name: Terraform Init
+        run:
+         terraform init \
+           -baclend-config="resource_group_name=${{secrets.TF_RESOURCE_GROUP}}" \
+           -backend-config="storage_account_name=${{secrets.TF_STORAGE_ACCOUNT}}" \
+           -backend-config="container_name=${{secrets.TF_CONTAINER_NAME}}"
+      
+      - name : Terraform Validate
+        run: terraform validate
+
+      - name: Terraform Plan
+        run: terraform plan \
+          -var="resource_group_name=${{secrets.AKS_RESOURCE_GROUP}}" \
+          -var="aks_cluster_name=${{secrets.AKS_CLUSTER_NAME}}" \
+          -var="location=${{secrets.AKS_LOCATION}}" \
+          -var="acr_name=${{secrets.ACR_NAME}}"
+          -var="environment=dev"
+
+      - name: Terraform Apply
+        run: terraform apply -auto-approve \
+          -var="resource_group_name=${{secrets.AKS_RESOURCE_GROUP}}" \
+          -var="aks_cluster_name=${{secrets.AKS_CLUSTER_NAME}}" \
+          -var="location=${{secrets.AKS_LOCATION}}" \
+          -var="acr_name=${{secrets.ACR_NAME}}" \
+          -var="environment=dev"
+
+#JOB 2 - Build and Publish
   build-and-publish:
     runs-on: ubuntu-latest
     environment: dev 
