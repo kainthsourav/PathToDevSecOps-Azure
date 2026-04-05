@@ -103,6 +103,9 @@ jobs:
           resource-group: ${{ secrets.AKS_RESOURCE_GROUP }}
           cluster-name: ${{ secrets.AKS_CLUSTER_NAME }}
 
+      - name: Reset manifests
+        run: git checkout k8s/deployment.yaml
+
       - name: Update image in manifest
         run: |
           sed -i 's|ACR_NAME_PLACEHOLDER|${{ secrets.ACR_NAME }}.azurecr.io|g' k8s/deployment.yaml
@@ -140,6 +143,9 @@ jobs:
         with:
           resource-group: ${{ secrets.AKS_RESOURCE_GROUP }}
           cluster-name: ${{ secrets.AKS_CLUSTER_NAME }}
+        
+      - name: Reset manifests
+        run: git checkout k8s/deployment.yaml
 
       - name: Update image in manifest
         run: |
