@@ -35,7 +35,7 @@ jobs:
             -backend-config="container_name=${{ secrets.TF_CONTAINER_NAME }}" \
             -backend-config="key=demoapi.terraform.tfstate" \
             -backend-config="use_azuread_auth=true"
-            
+
       - name : Terraform Validate
         run: terraform validate
 
@@ -45,7 +45,7 @@ jobs:
             -var="resource_group_name=${{secrets.AKS_RESOURCE_GROUP}}" \
             -var="aks_cluster_name=${{secrets.AKS_CLUSTER_NAME}}" \
             -var="location=${{secrets.AKS_LOCATION}}" \
-            -var="acr_name=${{secrets.ACR_NAME}}"
+            -var="acr_name=${{secrets.ACR_NAME}}" \
             -var="environment=dev"
 
       - name: Terraform Apply
