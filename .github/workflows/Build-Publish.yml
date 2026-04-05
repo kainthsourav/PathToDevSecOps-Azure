@@ -29,10 +29,10 @@ jobs:
 
       - name: Terraform Init
         run:
-         terraform init \
-           -backend-config="resource_group_name=${{secrets.TF_RESOURCE_GROUP}}" \
-           -backend-config="storage_account_name=${{secrets.TF_STORAGE_ACCOUNT}}" \
-           -backend-config="container_name=${{secrets.TF_CONTAINER_NAME}}"
+          terraform init \
+            -backend-config="resource_group_name=${{secrets.TF_RESOURCE_GROUP}}" \
+            -backend-config="storage_account_name=${{secrets.TF_STORAGE_ACCOUNT}}" \
+            -backend-config="container_name=${{secrets.TF_CONTAINER_NAME}}"
       
       - name : Terraform Validate
         run: terraform validate
