@@ -1,32 +1,43 @@
 name: Build and Publish
+
 on:
   push:
     branches:
       - main
   workflow_dispatch:
 
-#JOB 1 : Terraform - Provision Infrastructure
+concurrency:
+  group: terraform-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
+
+  # -----------------------------------------------
+  # JOB 1 — Terraform — Provision Infrastructure
+  # -----------------------------------------------
   terraform:
-    name: Terraform - Provision Infrastructure
+    name: Terraform — Provision Infrastructure
     runs-on: ubuntu-latest
     environment: dev
 
     defaults:
       run:
         working-directory: ./infra
+
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
-      
+        uses: actions/checkout@v3
+
       - name: Login to Azure
         uses: azure/login@v1
         with:
-          creds: ${{secrets.AZURE_CREDENTIALS}}
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
 
       - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v1
-        
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.7.0
+
       - name: Terraform Init
         run: |
           terraform init -upgrade \
@@ -36,66 +47,70 @@ jobs:
             -backend-config="key=demoapi.terraform.tfstate" \
             -backend-config="use_azuread_auth=true"
 
-      - name : Terraform Validate
+      - name: Terraform Validate
         run: terraform validate
 
       - name: Terraform Plan
         run: |
-          terraform plan \
-            -var="resource_group_name=${{secrets.AKS_RESOURCE_GROUP}}" \
-            -var="aks_cluster_name=${{secrets.AKS_CLUSTER_NAME}}" \
-            -var="location=${{secrets.AKS_LOCATION}}" \
-            -var="acr_name=${{secrets.ACR_NAME}}" \
+          terraform plan -input=false -lock-timeout=10m \
+            -var="resource_group_name=${{ secrets.AKS_RESOURCE_GROUP }}" \
+            -var="aks_name=${{ secrets.AKS_CLUSTER_NAME }}" \
+            -var="location=${{ secrets.AKS_LOCATION }}" \
+            -var="acr_name=${{ secrets.ACR_NAME }}" \
             -var="environment=dev"
 
       - name: Terraform Apply
         run: |
-          terraform apply -auto-approve \
-            -var="resource_group_name=${{secrets.AKS_RESOURCE_GROUP}}" \
-            -var="aks_cluster_name=${{secrets.AKS_CLUSTER_NAME}}" \
-            -var="location=${{secrets.AKS_LOCATION}}" \
-            -var="acr_name=${{secrets.ACR_NAME}}" \
+          terraform apply -auto-approve -input=false -lock-timeout=10m \
+            -var="resource_group_name=${{ secrets.AKS_RESOURCE_GROUP }}" \
+            -var="aks_name=${{ secrets.AKS_CLUSTER_NAME }}" \
+            -var="location=${{ secrets.AKS_LOCATION }}" \
+            -var="acr_name=${{ secrets.ACR_NAME }}" \
             -var="environment=dev"
 
-#JOB 2 - Build and Publish
+  # -----------------------------------------------
+  # JOB 2 — Build and Deploy
+  # -----------------------------------------------
   build-and-publish:
+    name: Build and Deploy DemoApi
     runs-on: ubuntu-latest
     needs: terraform
     environment: dev
+
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Login to Azure
         uses: azure/login@v1
         with:
-          creds: ${{secrets.AZURE_CREDENTIALS}} 
-      
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
       - name: Build and Push Image
         run: |
-         az acr login --name ${{secrets.ACR_NAME}}
-         docker buildx build \
-         --platform linux/amd64 \
-         -f docker/DemoApi.Dockerfile \
-         -t ${{secrets.ACR_NAME}}.azurecr.io/demoapi:${{github.sha}} \
-         --push .
-         
+          az acr login --name ${{ secrets.ACR_NAME }}
+          docker buildx build \
+            --platform linux/amd64 \
+            -f docker/DemoApi.Dockerfile \
+            -t ${{ secrets.ACR_NAME }}.azurecr.io/demoapi:${{ github.sha }} \
+            --push .
+
       - name: Set AKS Context
         uses: azure/aks-set-context@v3
         with:
-          resource-group: ${{secrets.AKS_RESOURCE_GROUP}}
-          cluster-name: ${{secrets.AKS_CLUSTER_NAME}}
+          resource-group: ${{ secrets.AKS_RESOURCE_GROUP }}
+          cluster-name: ${{ secrets.AKS_CLUSTER_NAME }}
 
       - name: Update image in manifest
         run: |
-          sed -i 's|ACR_NAME_PLACEHOLDER|${{ secrets.ACR_NAME }}.azurecr.io|g' k8/deployment.yaml
+          sed -i 's|ACR_NAME_PLACEHOLDER|${{ secrets.ACR_NAME }}.azurecr.io|g' k8s/deployment.yaml
 
       - name: Deploy to AKS
         uses: azure/k8s-deploy@v4
         with:
           manifests: |
-            k8/deployment.yaml
-            k8/service.yaml
-            k8/hpa.yaml
+            k8s/deployment.yaml
+            k8s/service.yaml
+            k8s/hpa.yaml
           images: |
             ${{ secrets.ACR_NAME }}.azurecr.io/demoapi:${{ github.sha }}
