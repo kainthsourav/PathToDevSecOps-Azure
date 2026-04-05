@@ -21,7 +21,7 @@ jobs:
     name: Terragrunt - Dev
     runs-on: ubuntu-latest
     environment: dev
-    defaults:
+    # defaults:
       # run:
       #   working-directory: ./infra/environments/dev   # ← fixed path
     steps:
