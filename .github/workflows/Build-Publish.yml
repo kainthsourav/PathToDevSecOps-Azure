@@ -38,20 +38,22 @@ jobs:
         run: terraform validate
 
       - name: Terraform Plan
-        run: terraform plan \
-          -var="resource_group_name=${{secrets.AKS_RESOURCE_GROUP}}" \
-          -var="aks_cluster_name=${{secrets.AKS_CLUSTER_NAME}}" \
-          -var="location=${{secrets.AKS_LOCATION}}" \
-          -var="acr_name=${{secrets.ACR_NAME}}"
-          -var="environment=dev"
+        run: |
+          terraform plan \
+            -var="resource_group_name=${{secrets.AKS_RESOURCE_GROUP}}" \
+            -var="aks_cluster_name=${{secrets.AKS_CLUSTER_NAME}}" \
+            -var="location=${{secrets.AKS_LOCATION}}" \
+            -var="acr_name=${{secrets.ACR_NAME}}"
+            -var="environment=dev"
 
       - name: Terraform Apply
-        run: terraform apply -auto-approve \
-          -var="resource_group_name=${{secrets.AKS_RESOURCE_GROUP}}" \
-          -var="aks_cluster_name=${{secrets.AKS_CLUSTER_NAME}}" \
-          -var="location=${{secrets.AKS_LOCATION}}" \
-          -var="acr_name=${{secrets.ACR_NAME}}" \
-          -var="environment=dev"
+        run: |
+          terraform apply -auto-approve \
+            -var="resource_group_name=${{secrets.AKS_RESOURCE_GROUP}}" \
+            -var="aks_cluster_name=${{secrets.AKS_CLUSTER_NAME}}" \
+            -var="location=${{secrets.AKS_LOCATION}}" \
+            -var="acr_name=${{secrets.ACR_NAME}}" \
+            -var="environment=dev"
 
 #JOB 2 - Build and Publish
   build-and-publish:
