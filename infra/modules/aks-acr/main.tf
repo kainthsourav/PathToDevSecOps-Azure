@@ -7,9 +7,9 @@ resource "azurerm_resource_group" "rg" {
     managed_by  = "terraform"
   }
 
-  lifecycle {
-    prevent_destroy = true
-  }
+#  lifecycle {
+#    prevent_destroy = true
+#  }
 }
 
 resource "azurerm_container_registry" "acr" {
