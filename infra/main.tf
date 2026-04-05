@@ -1,10 +1,9 @@
 resource "azurerm_resource_group" "rg" {
-  name     = var.resouce_group_name
+  name     = var.resource_group_name
   location = var.location
 
   tags = {
     environment = var.environment
-    project     = var.project
     managed_by  = "terraform"
   }
 
@@ -13,7 +12,6 @@ resource "azurerm_resource_group" "rg" {
   }
 }
 
-# Create ACR
 resource "azurerm_container_registry" "acr" {
   name                = var.acr_name
   resource_group_name = azurerm_resource_group.rg.name
@@ -23,20 +21,20 @@ resource "azurerm_container_registry" "acr" {
 
   tags = {
     environment = var.environment
-    project     = var.project
     managed_by  = "terraform"
   }
+
   lifecycle {
     prevent_destroy       = true
     create_before_destroy = true
   }
 }
-#AKS Cluster
+
 resource "azurerm_kubernetes_cluster" "aks" {
-  name                = var.aks_name
+  name                = var.aks_cluster_name
   resource_group_name = azurerm_resource_group.rg.name
   location            = azurerm_resource_group.rg.location
-  dns_prefix          = var.aks_name
+  dns_prefix          = var.aks_cluster_name
 
   default_node_pool {
     name       = "default"
@@ -50,21 +48,17 @@ resource "azurerm_kubernetes_cluster" "aks" {
 
   tags = {
     environment = var.environment
-    project     = var.project
     managed_by  = "terraform"
   }
+
   lifecycle {
     prevent_destroy = true
-
     ignore_changes = [
       default_node_pool[0].node_count,
       tags
     ]
   }
 }
-
-#Grant AKS permission to pull images from ACR
-#This replace: az aks update --attach-acr
 
 resource "azurerm_role_assignment" "aks_acr_pull" {
   principal_id                     = azurerm_kubernetes_cluster.aks.kubelet_identity[0].object_id
