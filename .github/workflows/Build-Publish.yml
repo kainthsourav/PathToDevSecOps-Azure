@@ -26,13 +26,14 @@ jobs:
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v1
-
+        
       - name: Terraform Init
         run: |
           terraform init \
-            -backend-config="resource_group_name=${{secrets.TF_RESOURCE_GROUP}}" \
-            -backend-config="storage_account_name=${{secrets.TF_STORAGE_ACCOUNT}}" \
-            -backend-config="container_name=${{secrets.TF_CONTAINER_NAME}}"
+          -backend-config="resource_group_name=${{ secrets.TF_RESOURCE_GROUP }}" \
+          -backend-config="storage_account_name=${{ secrets.TF_STORAGE_ACCOUNT }}" \
+          -backend-config="container_name=${{ secrets.TF_CONTAINER_NAME }}" \
+          -backend-config="use_azuread_auth=true"
       
       - name : Terraform Validate
         run: terraform validate

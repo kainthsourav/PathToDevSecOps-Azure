@@ -4,14 +4,12 @@ terraform {
   required_providers {
     azurerm = {
       source  = "hashicorp/azurerm"
-      version = ">= 3.0.0"
+      version = "~> 3.0"
     }
   }
+
   backend "azurerm" {
-    resource_group_name  = "rg-terraform-state"
-    storage_account_name = "tfstatesouravdemo"
-    container_name       = "tfstate"
-    key                  = "demoapi.terraform.tfstate"
+    use_azuread_auth = true  # uses SP identity — no storage keys needed
   }
 }
 
