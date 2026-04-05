@@ -23,7 +23,9 @@ jobs:
     environment: dev
     defaults:
       run:
-        working-directory: ./infra/environments/dev   # ← fixed path
+        working-directory: ./infra/enviroments/dev  # ← fixed path
+#         /home/runner/work/PathToDevSecOps-Azure/PathToDevSecOps-Azure/infra/enviroments/dev:
+# terragrunt.hcl
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
@@ -38,9 +40,9 @@ jobs:
         with:
           terraform_version: ${{ env.TERRAFORM_VERSION }}
           terraform_wrapper: false
-
-      - name: Debug repo structure
-        run: ls -R ./infra
+          
+      # - name: Debug repo root
+      #   run: ls -R $GITHUB_WORKSPACE
 
       - name: Setup Terragrunt
         run: |
