@@ -4,11 +4,13 @@ terraform {
   required_providers {
     azurerm = {
       source  = "hashicorp/azurerm"
-      version = "~> 3.0"
+       version = "~> 4.0"
     }
   }
 
-  backend "azurerm" {}
+  backend "azurerm" {
+    use_azuread_auth = true  # uses SP identity — no storage keys needed
+  }
 }
 
 provider "azurerm" {
