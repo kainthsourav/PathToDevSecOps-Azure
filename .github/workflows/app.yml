@@ -177,11 +177,11 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Import image from Dev ACR to Prod ACR
+      - name: Import image from STAGING ACR to Prod ACR
         run: |
           az acr import \
             --name ${{ secrets.ACR_NAME }} \
-            --source ${{ secrets.DEV_ACR_NAME }}.azurecr.io/demoapi:${{ env.IMAGE_TAG }} \
+            --source ${{ secrets.STAGING_ACR_NAME }}.azurecr.io/demoapi:${{ env.IMAGE_TAG }} \
             --image demoapi:${{ env.IMAGE_TAG }} \
             --force
 
