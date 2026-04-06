@@ -90,7 +90,7 @@ jobs:
             k8s/service.yaml
             k8s/hpa.yaml
           images: |
-            ${{ secrets.ACR_NAME }}.azurecr.io/demoapi:${{ github.sha }}
+            ${{ secrets.ACR_NAME }}.azurecr.io/demoapi:${{ env.IMAGE_TAG}}
 
   # -----------------------------------------------
   # PROMOTE AND DEPLOY STAGING — after dev succeeds
@@ -215,4 +215,4 @@ jobs:
             k8s/service.yaml
             k8s/hpa.yaml
           images: |
-            ${{ secrets.ACR_NAME }}.azurecr.io/demoapi:${{ github.sha }}
+            ${{ secrets.ACR_NAME }}.azurecr.io/demoapi:${{ env.IMAGE_TAG}}
