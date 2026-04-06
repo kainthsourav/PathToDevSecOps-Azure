@@ -61,6 +61,33 @@ jobs:
             -t ${{ secrets.ACR_NAME }}.azurecr.io/demoapi:${{ env.IMAGE_TAG }} \
             --push .
 
+    # ── TRIVY SCAN — blocks deployment if CRITICAL/HIGH found ──
+      - name: Scan image for vulnerabilities
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ secrets.ACR_NAME }}.azurecr.io/demoapi:${{ env.IMAGE_TAG }}
+          format: table           # human readable in pipeline logs
+          exit-code: 1            # fail pipeline if vulnerabilities found
+          severity: CRITICAL,HIGH # only fail on these two levels
+          ignore-unfixed: true    # skip CVEs with no fix available yet
+
+    # ── SARIF UPLOAD — sends results to GitHub Security tab ────
+      - name: Generate SARIF report
+        uses: aquasecurity/trivy-action@master
+        if: always()              # run even if previous scan step failed
+        with:
+          image-ref: ${{ secrets.ACR_NAME }}.azurecr.io/demoapi:${{ env.IMAGE_TAG }}
+          format: sarif
+          output: trivy-results.sarif
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+        
+      - name: Upload results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v2
+        if: always()
+        with:
+          sarif_file: trivy-results.sarif
+
   # -----------------------------------------------
   # DEPLOY DEV
   # -----------------------------------------------
@@ -91,7 +118,7 @@ jobs:
 
       - name: Install Kustomize
         uses: imranismail/setup-kustomize@v2
-        
+
       - name: Deploy to Dev AKS
         run: |
          cd k8s/overlays/dev

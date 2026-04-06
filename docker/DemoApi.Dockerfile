@@ -11,4 +11,13 @@ RUN dotnet publish ./src/DemoApi/DemoApi.csproj -c Release -o /app/publish
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS runtime
 WORKDIR /app
 COPY --from=build /app/publish .
+# Create non-root user and group
+RUN addgroup --system appgroup && \
+    adduser --system --ingroup appgroup appuser
+
+# Give ownership of app files to non-root user
+RUN chown -R appuser:appgroup /app
+
+# Switch to non-root user before running
+USER appuser
 ENTRYPOINT ["dotnet", "DemoApi.dll"]

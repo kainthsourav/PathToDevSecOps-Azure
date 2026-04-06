@@ -14,16 +14,32 @@ spec:
       labels:
         app: demoapi
     spec:
+      # Pod-level security — applies to all containers
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+
       containers:
       - name: demoapi
-        image: demoapi:latest      # Kustomize replaces this — no placeholder needed
+        image: demoapi:latest
         ports:
         - containerPort: 8080
+
+        # Container-level security
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+              - ALL              # drop all Linux capabilities
+
         env:
         - name: ASPNETCORE_ENVIRONMENT
-          value: "Development"     # overlays override this per environment
+          value: "Development"
         - name: ASPNETCORE_URLS
           value: "http://+:8080"
+
         resources:
           requests:
             cpu: "100m"
@@ -31,13 +47,15 @@ spec:
           limits:
             cpu: "500m"
             memory: "256Mi"
+
         livenessProbe:
           httpGet:
-            path: /health          # proper health endpoint
+            path: /health
             port: 8080
           initialDelaySeconds: 10
           periodSeconds: 30
           failureThreshold: 3
+
         readinessProbe:
           httpGet:
             path: /health
@@ -45,3 +63,17 @@ spec:
           initialDelaySeconds: 5
           periodSeconds: 10
           failureThreshold: 3
+
+        # Writable temp directory for ASP.NET Core
+        # readOnlyRootFilesystem needs this for temp files
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
+        - name: aspnet-temp
+          mountPath: /app/tmp
+
+      volumes:
+      - name: tmp
+        emptyDir: {}
+      - name: aspnet-temp
+        emptyDir: {}
