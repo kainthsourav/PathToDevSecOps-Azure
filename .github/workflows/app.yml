@@ -50,7 +50,8 @@ jobs:
       
       - name: Build and Push to Dev ACR
         run: |
-          az acr login --name ${{ secrets.ACR_NAME }} docker buildx build \
+          az acr login --name ${{ secrets.ACR_NAME }} 
+          docker buildx build \
           --platform linux/amd64 \
           -f docker/DemoApi.Dockerfile \
           -t ${{ secrets.ACR_NAME }}.azurecr.io/demoapi:${{ env.IMAGE_TAG }} \
