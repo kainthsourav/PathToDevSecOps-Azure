@@ -31,10 +31,6 @@ concurrency:
 env:
   IMAGE_TAG: ${{ github.event.inputs.IMAGE_TAG || github.sha }}
 
-permissions:
-  contents: read
-  security-events: write
-
 jobs:
   # -----------------------------------------------
   # BUILD
@@ -70,13 +66,20 @@ jobs:
     runs-on: ubuntu-latest
     needs: build
     environment: dev
+    permissions:
+      contents: read
+      security-events: write
     
     steps:
      - name: Login to Azure
        uses: azure/login@v1
        with:
          creds: ${{ secrets.AZURE_CREDENTIALS }}
-    # ── TRIVY SCAN — blocks deployment if CRITICAL/HIGH found ──
+    
+     - name: ACR login
+       run: az acr login --name ${{ secrets.ACR_NAME }}
+    
+       # ── TRIVY SCAN — blocks deployment if CRITICAL/HIGH found ──
      - name: Scan image for vulnerabilities
        uses: aquasecurity/trivy-action@master
        with:
