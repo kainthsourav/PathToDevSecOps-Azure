@@ -5,7 +5,7 @@ metadata:
   labels:
     app: demoapi
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
       app: demoapi
@@ -16,24 +16,32 @@ spec:
     spec:
       containers:
       - name: demoapi
-        image: ACR_NAME_PLACEHOLDER/demoapi:latest
+        image: demoapi:latest      # Kustomize replaces this — no placeholder needed
         ports:
         - containerPort: 8080
         env:
         - name: ASPNETCORE_ENVIRONMENT
-          value: "Development"
+          value: "Development"     # overlays override this per environment
         - name: ASPNETCORE_URLS
           value: "http://+:8080"
-
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+          limits:
+            cpu: "500m"
+            memory: "256Mi"
         livenessProbe:
           httpGet:
-            path: /weatherforecast
+            path: /health          # proper health endpoint
             port: 8080
           initialDelaySeconds: 10
           periodSeconds: 30
+          failureThreshold: 3
         readinessProbe:
           httpGet:
-            path: /weatherforecast
+            path: /health
             port: 8080
           initialDelaySeconds: 5
           periodSeconds: 10
+          failureThreshold: 3

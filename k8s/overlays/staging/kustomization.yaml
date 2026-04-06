@@ -1,0 +1,28 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: default
+
+bases:
+  - ../../base
+
+images:
+  - name: demoapi
+    newName: acrdemosouravstg.azurecr.io/demoapi
+    newTag: latest
+
+patches:
+  - patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: demoapi-deployment
+      spec:
+        replicas: 1
+        template:
+          spec:
+            containers:
+            - name: demoapi
+              env:
+              - name: ASPNETCORE_ENVIRONMENT
+                value: "Staging"
