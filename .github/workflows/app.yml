@@ -89,10 +89,14 @@ jobs:
           resource-group: ${{ secrets.AKS_RESOURCE_GROUP }}
           cluster-name: ${{ secrets.AKS_CLUSTER_NAME }}
 
+      - name: Install Kustomize
+        uses: imranismail/setup-kustomize@v2
+        
       - name: Deploy to Dev AKS
         run: |
-          cd k8s/overlays/dev
-          kubectl kustomize . | sed "s|demoapi:latest|${{ secrets.ACR_NAME }}.azurecr.io/demoapi:${{ env.IMAGE_TAG }}|g" | kubectl apply -f -
+         cd k8s/overlays/dev
+         kustomize edit set image demoapi=${{ secrets.ACR_NAME }}.azurecr.io/demoapi:${{ env.IMAGE_TAG }}
+         kubectl apply -k .
 
   # -----------------------------------------------
   # PROMOTE TO STAGING
@@ -153,10 +157,14 @@ jobs:
           resource-group: ${{ secrets.AKS_RESOURCE_GROUP }}
           cluster-name: ${{ secrets.AKS_CLUSTER_NAME }}
 
+      - name: Install Kustomize
+        uses: imranismail/setup-kustomize@v2
+
       - name: Deploy to Staging AKS
         run: |
-          cd k8s/overlays/staging
-          kubectl kustomize . | sed "s|demoapi:latest|${{ secrets.ACR_NAME }}.azurecr.io/demoapi:${{ env.IMAGE_TAG }}|g" | kubectl apply -f -
+         cd k8s/overlays/staging
+         kustomize edit set image demoapi=${{ secrets.ACR_NAME }}.azurecr.io/demoapi:${{ env.IMAGE_TAG }}
+         kubectl apply -k .
 
   # -----------------------------------------------
   # PROMOTE TO PROD
@@ -208,8 +216,12 @@ jobs:
         with:
           resource-group: ${{ secrets.AKS_RESOURCE_GROUP }}
           cluster-name: ${{ secrets.AKS_CLUSTER_NAME }}
+          
+      - name: Install Kustomize
+        uses: imranismail/setup-kustomize@v2
 
       - name: Deploy to Prod AKS
         run: |
-          cd k8s/overlays/prod
-          kubectl kustomize . | sed "s|demoapi:latest|${{ secrets.ACR_NAME }}.azurecr.io/demoapi:${{ env.IMAGE_TAG }}|g" | kubectl apply -f -
+         cd k8s/overlays/prod
+         kustomize edit set image demoapi=${{ secrets.ACR_NAME }}.azurecr.io/demoapi:${{ env.IMAGE_TAG }}
+         kubectl apply -k .

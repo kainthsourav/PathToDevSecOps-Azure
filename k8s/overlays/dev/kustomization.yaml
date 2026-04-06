@@ -6,13 +6,11 @@ namespace: default
 bases:
   - ../../base
 
-# Replace image — Kustomize handles this natively
 images:
-  - name: demoapi
-    newName: acrdemosouravdev.azurecr.io/demoapi
-    newTag: latest    # pipeline overrides this with github.sha
+  - name: demoapi                    # matches image name in base deployment.yaml
+    newName: demoapi                 # placeholder — pipeline overwrites this
+    newTag: latest                   # placeholder — pipeline overwrites this
 
-# Override environment specific values
 patches:
   - patch: |-
       apiVersion: apps/v1

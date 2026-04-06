@@ -8,7 +8,7 @@ bases:
 
 images:
   - name: demoapi
-    newName: acrdemosouravstg.azurecr.io/demoapi
+    newName: demoapi
     newTag: latest
 
 patches:
