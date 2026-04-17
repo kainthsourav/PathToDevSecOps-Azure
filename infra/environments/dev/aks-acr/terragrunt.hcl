@@ -1,9 +1,13 @@
+# infra/environments/dev/aks-acr/terragrunt.hcl
+# MOVED from: infra/environments/dev/terragrunt.hcl
+# Content unchanged
+
 include "root" {
   path = find_in_parent_folders()
 }
 
 terraform {
-  source = "../../modules/aks-acr"
+  source = "../../../modules/aks-acr"   # ← one extra ../ because now one level deeper
 }
 
 inputs = {

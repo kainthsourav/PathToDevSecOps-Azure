@@ -1,6 +1,13 @@
+# infra/modules/aks-acr/output.tf
+
 output "resource_group_name" {
   description = "Resource group name"
   value       = azurerm_resource_group.rg.name
+}
+
+output "location" {
+  description = "Azure region — passed to functions module via dependency output"
+  value       = azurerm_resource_group.rg.location
 }
 
 output "acr_login_server" {
@@ -23,9 +30,6 @@ output "aks_resource_group" {
   value       = azurerm_resource_group.rg.name
 }
 
-
-# sensitive = true means Terraform won't print it in terminal logs
-# but you can still reference it in pipelines
 output "kube_config" {
   description = "Kubeconfig to connect kubectl to AKS"
   value       = azurerm_kubernetes_cluster.aks.kube_config_raw

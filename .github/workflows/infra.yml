@@ -5,29 +5,30 @@ on:
     branches:
       - main
     paths:
-      - 'infra/**'        # only runs when infra files change
-  workflow_dispatch:      # allow manual trigger
+      - 'infra/**'
+  workflow_dispatch:
 
 concurrency:
-  group: 'terragrunt-${{ github.ref }}'  # concurrency group based on branch name
-  cancel-in-progress: false  # do not cancel in-progress runs
+  group: 'terragrunt-${{ github.ref }}'
+  cancel-in-progress: false
 
 env:
-    TERRAGRUNT_VERSION: 0.63.6
-    TERRAFORM_VERSION: 1.7.0
+  TERRAGRUNT_VERSION: 0.63.6
+  TERRAFORM_VERSION: 1.7.0
 
 jobs:
+  # ── AKS + ACR ──────────────────────────────────────────────────────────────
   dev:
     name: Terragrunt-Dev
     runs-on: ubuntu-latest
     environment: dev
-    
+
     env:
-      ARM_ACCESS_KEY: ${{ secrets.TF_STATE_ACCESS_KEY }}  # job level — available to ALL steps including cache
+      ARM_ACCESS_KEY: ${{ secrets.TF_STATE_ACCESS_KEY }}
 
     defaults:
       run:
-        working-directory: ./infra/environments/dev
+        working-directory: ./infra/environments/dev/aks-acr   # ← updated
 
     steps:
       - name: Checkout code
@@ -64,18 +65,67 @@ jobs:
       - name: Terragrunt Apply
         run: terragrunt apply -auto-approve -input=false -lock-timeout=10m
 
+  # ── FUNCTIONS DEV ───────────────────────────────────────────────────────────
+  dev-functions:
+    name: Terragrunt-Dev-Functions
+    runs-on: ubuntu-latest
+    environment: dev
+    needs: dev   # RG must exist first — created by dev job above
+
+    env:
+      ARM_ACCESS_KEY: ${{ secrets.TF_STATE_ACCESS_KEY }}
+
+    defaults:
+      run:
+        working-directory: ./infra/environments/dev/functions
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Login to Azure
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+          terraform_wrapper: false
+
+      - name: Setup Terragrunt
+        working-directory: .
+        run: |
+          wget -q https://github.com/gruntwork-io/terragrunt/releases/download/v${{ env.TERRAGRUNT_VERSION }}/terragrunt_linux_amd64
+          chmod +x terragrunt_linux_amd64
+          sudo mv terragrunt_linux_amd64 /usr/local/bin/terragrunt
+
+      - name: Terragrunt Init
+        run: terragrunt init --terragrunt-non-interactive
+
+      - name: Terragrunt Validate
+        run: terragrunt validate
+
+      - name: Terragrunt Plan
+        run: terragrunt plan -input=false -lock-timeout=10m
+
+      - name: Terragrunt Apply
+        run: terragrunt apply -auto-approve -input=false -lock-timeout=10m
+
+  # ── AKS + ACR STAGING ───────────────────────────────────────────────────────
   Staging:
     name: Terragrunt-Staging
     runs-on: ubuntu-latest
     environment: staging
-    needs: dev  # only run after dev succeeds
+    needs: dev-functions   # only after dev (aks + functions) fully succeeds
 
     env:
-      ARM_ACCESS_KEY: ${{ secrets.TF_STATE_ACCESS_KEY }}  # job level — available to ALL steps including cache
+      ARM_ACCESS_KEY: ${{ secrets.TF_STATE_ACCESS_KEY }}
 
     defaults:
       run:
-        working-directory: ./infra/environments/staging
+        working-directory: ./infra/environments/staging/aks-acr   # ← updated
 
     steps:
       - name: Checkout code
@@ -98,7 +148,6 @@ jobs:
           wget -q https://github.com/gruntwork-io/terragrunt/releases/download/v${{ env.TERRAGRUNT_VERSION }}/terragrunt_linux_amd64
           chmod +x terragrunt_linux_amd64
           sudo mv terragrunt_linux_amd64 /usr/local/bin/terragrunt
-          terragrunt --version
 
       - name: Terragrunt Init
         run: terragrunt init --terragrunt-non-interactive
@@ -112,18 +161,19 @@ jobs:
       - name: Terragrunt Apply
         run: terragrunt apply -auto-approve -input=false -lock-timeout=10m
 
-  Production:
-    name: Terragrunt-Production
+  # ── FUNCTIONS STAGING ───────────────────────────────────────────────────────
+  staging-functions:
+    name: Terragrunt-Staging-Functions
     runs-on: ubuntu-latest
-    environment: prod
-    needs: Staging  # only run after staging succeeds
+    environment: staging
+    needs: Staging
 
     env:
-      ARM_ACCESS_KEY: ${{ secrets.TF_STATE_ACCESS_KEY }}  # job level — available to ALL steps including cache
+      ARM_ACCESS_KEY: ${{ secrets.TF_STATE_ACCESS_KEY }}
 
     defaults:
       run:
-        working-directory: ./infra/environments/prod
+        working-directory: ./infra/environments/staging/functions
 
     steps:
       - name: Checkout code
@@ -146,7 +196,102 @@ jobs:
           wget -q https://github.com/gruntwork-io/terragrunt/releases/download/v${{ env.TERRAGRUNT_VERSION }}/terragrunt_linux_amd64
           chmod +x terragrunt_linux_amd64
           sudo mv terragrunt_linux_amd64 /usr/local/bin/terragrunt
-          terragrunt --version
+
+      - name: Terragrunt Init
+        run: terragrunt init --terragrunt-non-interactive
+
+      - name: Terragrunt Validate
+        run: terragrunt validate
+
+      - name: Terragrunt Plan
+        run: terragrunt plan -input=false -lock-timeout=10m
+
+      - name: Terragrunt Apply
+        run: terragrunt apply -auto-approve -input=false -lock-timeout=10m
+
+  # ── AKS + ACR PROD ──────────────────────────────────────────────────────────
+  Production:
+    name: Terragrunt-Production
+    runs-on: ubuntu-latest
+    environment: prod
+    needs: staging-functions   # only after staging (aks + functions) fully succeeds
+
+    env:
+      ARM_ACCESS_KEY: ${{ secrets.TF_STATE_ACCESS_KEY }}
+
+    defaults:
+      run:
+        working-directory: ./infra/environments/prod/aks-acr   # ← updated
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Login to Azure
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+          terraform_wrapper: false
+
+      - name: Setup Terragrunt
+        working-directory: .
+        run: |
+          wget -q https://github.com/gruntwork-io/terragrunt/releases/download/v${{ env.TERRAGRUNT_VERSION }}/terragrunt_linux_amd64
+          chmod +x terragrunt_linux_amd64
+          sudo mv terragrunt_linux_amd64 /usr/local/bin/terragrunt
+
+      - name: Terragrunt Init
+        run: terragrunt init --terragrunt-non-interactive
+
+      - name: Terragrunt Validate
+        run: terragrunt validate
+
+      - name: Terragrunt Plan
+        run: terragrunt plan -input=false -lock-timeout=10m
+
+      - name: Terragrunt Apply
+        run: terragrunt apply -auto-approve -input=false -lock-timeout=10m
+
+  # ── FUNCTIONS PROD ───────────────────────────────────────────────────────────
+  prod-functions:
+    name: Terragrunt-Prod-Functions
+    runs-on: ubuntu-latest
+    environment: prod
+    needs: Production
+
+    env:
+      ARM_ACCESS_KEY: ${{ secrets.TF_STATE_ACCESS_KEY }}
+
+    defaults:
+      run:
+        working-directory: ./infra/environments/prod/functions
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Login to Azure
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+          terraform_wrapper: false
+
+      - name: Setup Terragrunt
+        working-directory: .
+        run: |
+          wget -q https://github.com/gruntwork-io/terragrunt/releases/download/v${{ env.TERRAGRUNT_VERSION }}/terragrunt_linux_amd64
+          chmod +x terragrunt_linux_amd64
+          sudo mv terragrunt_linux_amd64 /usr/local/bin/terragrunt
 
       - name: Terragrunt Init
         run: terragrunt init --terragrunt-non-interactive

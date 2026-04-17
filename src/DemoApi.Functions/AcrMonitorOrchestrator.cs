@@ -1,86 +1,80 @@
-// src/DemoApi.Functions/AcrMonitorOrchestrator.cs
+using DemoApi.Functions.Models;
+using Microsoft.Azure.WebJobs;
+using Microsoft.Azure.WebJobs.Extensions.DurableTask;
+using Microsoft.Extensions.Logging;
 
-[FunctionName("AcrMonitorOrchestrator")]
-public static async Task<bool> RunOrchestrator(
-    [OrchestrationTrigger] IDurableOrchestrationContext context,
-    ILogger log)
+namespace DemoApi.Functions;
+
+public static class AcrMonitorOrchestrator
 {
-    var request = context.GetInput<ScanRequest>();  // reusing ScanRequest — ImageRef tells us what to look for
+    // Static HttpClient — reused across invocations, avoids socket exhaustion
+    private static readonly HttpClient _httpClient = new();
 
-    // How long to wait between checks
-    var pollingInterval = TimeSpan.FromSeconds(30);
-
-    // Give up after this long — maps to your -lock-timeout=10m in Terraform
-    var expiryTime = context.CurrentUtcDateTime.Add(TimeSpan.FromMinutes(10));
-
-    // ── MONITOR LOOP ─────────────────────────────────────────────────────
-    while (context.CurrentUtcDateTime < expiryTime)
+    // ── ORCHESTRATOR ──────────────────────────────────────────────────────
+    [FunctionName("AcrMonitorOrchestrator")]
+    public static async Task<bool> RunOrchestrator(
+        [OrchestrationTrigger] IDurableOrchestrationContext context)
     {
-        // Ask the activity: is this image pullable from ACR yet?
-        var imageReady = await context.CallActivityAsync<bool>(
-            "CheckImageInAcr",
-            request.ImageRef);
+        // CreateReplaySafeLogger — only logs once per step, not on every replay
+        ILogger log = context.CreateReplaySafeLogger(nameof(AcrMonitorOrchestrator));
 
-        if (imageReady)
+        var request = context.GetInput<ScanRequest>();
+
+        var pollingInterval = TimeSpan.FromSeconds(30);
+        var expiryTime      = context.CurrentUtcDateTime.Add(TimeSpan.FromMinutes(10));
+
+        while (context.CurrentUtcDateTime < expiryTime)
         {
-            log.LogInformation(
-                "Image {ImageRef} confirmed in ACR. Safe to deploy.",
+            var imageReady = await context.CallActivityAsync<bool>(
+                "CheckImageInAcr",
                 request.ImageRef);
 
-            return true;    // signal pipeline: proceed with deploy
+            if (imageReady)
+            {
+                log.LogInformation(
+                    "Image {ImageRef} confirmed in ACR. Safe to deploy.",
+                    request.ImageRef);
+
+                return true;
+            }
+
+            var nextCheck = context.CurrentUtcDateTime.Add(pollingInterval);
+            await context.CreateTimer(nextCheck, CancellationToken.None);
         }
 
-        // Not ready yet — wait 30 seconds then check again
-        // context.CreateTimer is replay-safe — DateTime.UtcNow would NOT be
-        var nextCheck = context.CurrentUtcDateTime.Add(pollingInterval);
-        await context.CreateTimer(nextCheck, CancellationToken.None);
+        log.LogWarning(
+            "Image {ImageRef} not found in ACR after 10 minutes. Deployment blocked.",
+            request.ImageRef);
 
-        // After timer fires, loop back and check again
-        // Each iteration: checkpoint → stop → wait → replay → continue
+        return false;
     }
 
-    // Timed out — image never appeared
-    log.LogWarning(
-        "Image {ImageRef} not found in ACR after 10 minutes. Deployment blocked.",
-        request.ImageRef);
-
-    return false;
-}
-
-// ── ACTIVITY: Check if image exists in ACR ────────────────────────────────
-[FunctionName("CheckImageInAcr")]
-public static async Task<bool> CheckImageInAcr(
-    [ActivityTrigger] string imageRef,   // e.g. acrdemosouravstaging.azurecr.io/demoapi:abc123
-    ILogger log)
-{
-    log.LogInformation("Checking ACR for image {ImageRef}", imageRef);
-
-    // In production: use Azure SDK to check if manifest exists
-    // var credential = new DefaultAzureCredential();
-    // var client = new ContainerRegistryClient(new Uri($"https://{registryHost}"), credential);
-    // var artifact = client.GetArtifact(repositoryName, tag);
-    // var properties = await artifact.GetManifestPropertiesAsync();
-
-    // For now: simulate with HTTP check against ACR manifest endpoint
-    using var httpClient = new HttpClient();
-    try
+    // ── ACTIVITY ──────────────────────────────────────────────────────────
+    [FunctionName("CheckImageInAcr")]
+    public static async Task<bool> CheckImageInAcr(
+        [ActivityTrigger] string imageRef,
+        ILogger log)   // ← ILogger IS valid in activities, just not in orchestrators
     {
-        var parts     = imageRef.Split('/');
-        var registry  = parts[0];   // acrdemosouravstaging.azurecr.io
-        var repoTag   = string.Join("/", parts[1..]);   // demoapi:abc123
-        var repoParts = repoTag.Split(':');
-        var repo      = repoParts[0];   // demoapi
-        var tag       = repoParts[1];   // abc123
+        log.LogInformation("Checking ACR for image {ImageRef}", imageRef);
 
-        // ACR manifest endpoint returns 200 if image exists, 404 if not
-        var manifestUrl = $"https://{registry}/v2/{repo}/manifests/{tag}";
-        var response    = await httpClient.GetAsync(manifestUrl);
+        try
+        {
+            var parts     = imageRef.Split('/');
+            var registry  = parts[0];
+            var repoTag   = string.Join("/", parts[1..]);
+            var repoParts = repoTag.Split(':');
+            var repo      = repoParts[0];
+            var tag       = repoParts[1];
 
-        return response.IsSuccessStatusCode;
-    }
-    catch (Exception ex)
-    {
-        log.LogWarning("ACR check failed: {Error}. Will retry.", ex.Message);
-        return false;   // treat errors as not-ready, loop will retry
+            var manifestUrl = $"https://{registry}/v2/{repo}/manifests/{tag}";
+            var response    = await _httpClient.GetAsync(manifestUrl);
+
+            return response.IsSuccessStatusCode;
+        }
+        catch (Exception ex)
+        {
+            log.LogWarning("ACR check failed: {Error}. Will retry.", ex.Message);
+            return false;
+        }
     }
 }
