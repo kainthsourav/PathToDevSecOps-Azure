@@ -60,7 +60,10 @@ jobs:
             -f docker/DemoApi.Dockerfile \
             -t ${{ secrets.ACR_NAME }}.azurecr.io/demoapi:${{ env.IMAGE_TAG }} \
             --push .
-  
+
+  # -----------------------------------------------
+  # SECURITY SCAN — unchanged, Trivy + SARIF upload
+  # -----------------------------------------------
   security-scan:
     name: Security Scan
     runs-on: ubuntu-latest
@@ -69,42 +72,43 @@ jobs:
     permissions:
       contents: read
       security-events: write
-    
-    steps:
-     - name: Login to Azure
-       uses: azure/login@v1
-       with:
-         creds: ${{ secrets.AZURE_CREDENTIALS }}
-    
-     - name: ACR login
-       run: az acr login --name ${{ secrets.ACR_NAME }}
-    
-       # ── TRIVY SCAN — blocks deployment if CRITICAL/HIGH found ──
-     - name: Scan image for vulnerabilities
-       uses: aquasecurity/trivy-action@master
-       with:
-         image-ref: ${{ secrets.ACR_NAME }}.azurecr.io/demoapi:${{ env.IMAGE_TAG }}
-         format: table           # human readable in pipeline logs
-         exit-code: 1            # fail pipeline if vulnerabilities found
-         severity: CRITICAL,HIGH # only fail on these two levels
-         ignore-unfixed: true    # skip CVEs with no fix available yet
 
-    # ── SARIF UPLOAD — sends results to GitHub Security tab ────
-     - name: Generate SARIF report
-       uses: aquasecurity/trivy-action@master
-       if: always()              # run even if previous scan step failed
-       with:
-         image-ref: ${{ secrets.ACR_NAME }}.azurecr.io/demoapi:${{ env.IMAGE_TAG }}
-         format: sarif
-         output: trivy-results.sarif
-         severity: CRITICAL,HIGH
-         ignore-unfixed: true
-      
-     - name: Upload results to GitHub Security tab
-       uses: github/codeql-action/upload-sarif@v4
-       if: always()
-       with:
-         sarif_file: trivy-results.sarif
+    steps:
+      - name: Login to Azure
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: ACR login
+        run: az acr login --name ${{ secrets.ACR_NAME }}
+
+        # ── TRIVY SCAN — blocks deployment if CRITICAL/HIGH found ──
+      - name: Scan image for vulnerabilities
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ secrets.ACR_NAME }}.azurecr.io/demoapi:${{ env.IMAGE_TAG }}
+          format: table           # human readable in pipeline logs
+          exit-code: 1            # fail pipeline if vulnerabilities found
+          severity: CRITICAL,HIGH # only fail on these two levels
+          ignore-unfixed: true    # skip CVEs with no fix available yet
+
+      # ── SARIF UPLOAD — sends results to GitHub Security tab ────
+      - name: Generate SARIF report
+        uses: aquasecurity/trivy-action@master
+        if: always()              # run even if previous scan step failed
+        with:
+          image-ref: ${{ secrets.ACR_NAME }}.azurecr.io/demoapi:${{ env.IMAGE_TAG }}
+          format: sarif
+          output: trivy-results.sarif
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+
+      - name: Upload results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v4
+        if: always()
+        with:
+          sarif_file: trivy-results.sarif
+
   # -----------------------------------------------
   # DEPLOY DEV
   # -----------------------------------------------
@@ -138,9 +142,9 @@ jobs:
 
       - name: Deploy to Dev AKS
         run: |
-         cd k8s/overlays/dev
-         kustomize edit set image demoapi=${{ secrets.ACR_NAME }}.azurecr.io/demoapi:${{ env.IMAGE_TAG }}
-         kubectl apply -k .
+          cd k8s/overlays/dev
+          kustomize edit set image demoapi=${{ secrets.ACR_NAME }}.azurecr.io/demoapi:${{ env.IMAGE_TAG }}
+          kubectl apply -k .
 
   # -----------------------------------------------
   # PROMOTE TO STAGING
@@ -172,16 +176,82 @@ jobs:
             --force
 
   # -----------------------------------------------
-  # DEPLOY STAGING
+  # MONITOR STAGING ACR
+  # NEW: polls ACR every 30s until image is pullable
+  # Prevents ImagePullBackOff caused by deploying
+  # before az acr import fully propagates
   # -----------------------------------------------
-  deploy-staging:
-    name: Deploy to Staging
+  monitor-staging-acr:
+    name: Wait for Image in Staging ACR
     runs-on: ubuntu-latest
     needs: promote-staging
     environment: staging
     if: |
       always() &&
       needs.promote-staging.result == 'success' &&
+      (github.event_name == 'push' ||
+       github.event.inputs.target_environment == 'dev' ||
+       github.event.inputs.target_environment == 'staging')
+
+    steps:
+      - name: Login to Azure
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      # Poll the ACR manifest endpoint every 30s for up to 10 minutes.
+      # The manifest endpoint returns 200 when the image is fully pushed
+      # and pullable. A 404 means import is still propagating.
+      # This is the same pattern as the Durable Monitor orchestrator —
+      # poll → wait → poll — but implemented as a shell loop here
+      # because the Functions project is a separate service.
+      - name: Poll ACR until image is pullable
+        run: |
+          ACR_HOST="${{ secrets.ACR_NAME }}.azurecr.io"
+          IMAGE_TAG="${{ env.IMAGE_TAG }}"
+          MANIFEST_URL="https://${ACR_HOST}/v2/demoapi/manifests/${IMAGE_TAG}"
+          TIMEOUT=600   # 10 minutes — same as -lock-timeout=10m in Terraform
+          INTERVAL=30   # 30 seconds between checks
+          ELAPSED=0
+
+          echo "Polling ${MANIFEST_URL}"
+          echo "Timeout: ${TIMEOUT}s | Interval: ${INTERVAL}s"
+
+          while [ $ELAPSED -lt $TIMEOUT ]; do
+            # Use ACR token auth — az acr login already set credentials on the runner
+            HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+              -H "Authorization: Bearer $(az acr login --name ${{ secrets.ACR_NAME }} --expose-token --output tsv --query accessToken)" \
+              "${MANIFEST_URL}")
+
+            echo "Attempt at ${ELAPSED}s — HTTP status: ${HTTP_STATUS}"
+
+            if [ "$HTTP_STATUS" = "200" ]; then
+              echo "✅ Image confirmed pullable in Staging ACR after ${ELAPSED}s"
+              exit 0
+            fi
+
+            echo "⏳ Not ready yet (got ${HTTP_STATUS}). Waiting ${INTERVAL}s..."
+            sleep $INTERVAL
+            ELAPSED=$((ELAPSED + INTERVAL))
+          done
+
+          echo "❌ Image not found in Staging ACR after ${TIMEOUT}s. Blocking deployment."
+          exit 1
+
+  # -----------------------------------------------
+  # DEPLOY STAGING
+  # now depends on monitor-staging-acr instead of
+  # promote-staging directly — deploy only when
+  # image is confirmed pullable
+  # -----------------------------------------------
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: monitor-staging-acr   # CHANGED: was promote-staging
+    environment: staging
+    if: |
+      always() &&
+      needs.monitor-staging-acr.result == 'success' &&
       (github.event_name == 'push' ||
        github.event.inputs.target_environment == 'dev' ||
        github.event.inputs.target_environment == 'staging')
@@ -206,13 +276,13 @@ jobs:
 
       - name: Deploy to Staging AKS
         run: |
-         cd k8s/overlays/staging
-         kustomize edit set image demoapi=${{ secrets.ACR_NAME }}.azurecr.io/demoapi:${{ env.IMAGE_TAG }}
-         kubectl apply -k .
+          cd k8s/overlays/staging
+          kustomize edit set image demoapi=${{ secrets.ACR_NAME }}.azurecr.io/demoapi:${{ env.IMAGE_TAG }}
+          kubectl apply -k .
 
   # -----------------------------------------------
   # PROMOTE TO PROD
-  # always imports from dev ACR — source of truth
+  # always imports from staging ACR — unchanged
   # -----------------------------------------------
   promote-prod:
     name: Promote Image to Prod ACR
@@ -238,13 +308,68 @@ jobs:
             --force
 
   # -----------------------------------------------
+  # MONITOR PROD ACR
+  # NEW: same pattern as monitor-staging-acr
+  # prod import takes longer — timeout raised to 15m
+  # because prod ACR geo-replication adds latency
+  # -----------------------------------------------
+  monitor-prod-acr:
+    name: Wait for Image in Prod ACR
+    runs-on: ubuntu-latest
+    needs: promote-prod
+    environment: prod
+    if: |
+      always() &&
+      needs.promote-prod.result == 'success'
+
+    steps:
+      - name: Login to Azure
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Poll ACR until image is pullable
+        run: |
+          ACR_HOST="${{ secrets.ACR_NAME }}.azurecr.io"
+          IMAGE_TAG="${{ env.IMAGE_TAG }}"
+          MANIFEST_URL="https://${ACR_HOST}/v2/demoapi/manifests/${IMAGE_TAG}"
+          TIMEOUT=900   # 15 minutes for prod — geo-replication takes longer
+          INTERVAL=30
+          ELAPSED=0
+
+          echo "Polling ${MANIFEST_URL}"
+          echo "Timeout: ${TIMEOUT}s | Interval: ${INTERVAL}s"
+
+          while [ $ELAPSED -lt $TIMEOUT ]; do
+            HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+              -H "Authorization: Bearer $(az acr login --name ${{ secrets.ACR_NAME }} --expose-token --output tsv --query accessToken)" \
+              "${MANIFEST_URL}")
+
+            echo "Attempt at ${ELAPSED}s — HTTP status: ${HTTP_STATUS}"
+
+            if [ "$HTTP_STATUS" = "200" ]; then
+              echo "✅ Image confirmed pullable in Prod ACR after ${ELAPSED}s"
+              exit 0
+            fi
+
+            echo "⏳ Not ready yet (got ${HTTP_STATUS}). Waiting ${INTERVAL}s..."
+            sleep $INTERVAL
+            ELAPSED=$((ELAPSED + INTERVAL))
+          done
+
+          echo "❌ Image not found in Prod ACR after ${TIMEOUT}s. Blocking deployment."
+          exit 1
+
+  # -----------------------------------------------
   # DEPLOY PROD — manual approval gate
+  # now depends on monitor-prod-acr instead of
+  # promote-prod directly
   # -----------------------------------------------
   deploy-prod:
     name: Deploy to Prod
     runs-on: ubuntu-latest
-    needs: promote-prod
-    environment: prod
+    needs: monitor-prod-acr      # CHANGED: was promote-prod
+    environment: prod            # approval gate still applies here
 
     steps:
       - name: Checkout code
@@ -260,12 +385,12 @@ jobs:
         with:
           resource-group: ${{ secrets.AKS_RESOURCE_GROUP }}
           cluster-name: ${{ secrets.AKS_CLUSTER_NAME }}
-          
+
       - name: Install Kustomize
         uses: imranismail/setup-kustomize@v2
 
       - name: Deploy to Prod AKS
         run: |
-         cd k8s/overlays/prod
-         kustomize edit set image demoapi=${{ secrets.ACR_NAME }}.azurecr.io/demoapi:${{ env.IMAGE_TAG }}
-         kubectl apply -k .
+          cd k8s/overlays/prod
+          kustomize edit set image demoapi=${{ secrets.ACR_NAME }}.azurecr.io/demoapi:${{ env.IMAGE_TAG }}
+          kubectl apply -k .

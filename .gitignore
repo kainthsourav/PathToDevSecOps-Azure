@@ -1,3 +1,17 @@
 infra/environments/dev/.terraform.lock.hcl
 infra/environments/prod/.terraform.lock.hcl
 infra/environments/staging/.terraform.lock.hcl
+src/DemoApi/obj/DemoApi.csproj.nuget.dgspec.json
+src/DemoApi/obj/DemoApi.csproj.nuget.dgspec.json
+.gitignore
+src/DemoApi/obj/DemoApi.csproj.nuget.dgspec.json
+src/DemoApi/obj/project.assets.json
+src/DemoApi/obj/project.nuget.cache
+src/DemoApi/obj/Debug/net8.0/DemoApi.AssemblyInfo.cs
+src/DemoApi/obj/Debug/net8.0/DemoApi.AssemblyInfoInputs.cache
+src/DemoApi/obj/Debug/net8.0/DemoApi.assets.cache
+src/DemoApi/obj/DemoApi.csproj.nuget.dgspec.json
+src/DemoApi/obj/project.assets.json
+src/DemoApi/obj/project.nuget.cache
+src/DemoApi/obj/Debug/net8.0/DemoApi.AssemblyInfoInputs.cache
+src/DemoApi/obj/Debug/net8.0/DemoApi.assets.cache
